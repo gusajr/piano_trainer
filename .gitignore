@@ -13,10 +13,18 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+credentials.json
+
+# build artifacts
+build/
+*.ipa
+*.apk
+*.aab
 
 # Metro
 .metro-health-check*
@@ -25,13 +33,18 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
 
 # macOS
 .DS_Store
+Thumbs.db
 *.pem
 
-# local env files
-.env*.local
+# local environment and credentials (keep shareable templates)
+.env
+.env.*
+!.env.example
+!.env.sample
 
 # typescript
 *.tsbuildinfo
