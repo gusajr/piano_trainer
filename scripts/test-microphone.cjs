@@ -44,6 +44,10 @@ assert.equal(evaluateExternalNotes(target,[48,76],new Set()).result,'correct');
 assert.equal(evaluateExternalNotes(target,[61],new Set()).result,'wrong');
 assert.equal(evaluateExternalNotes([{midi:48},{midi:60},{midi:72}],[36],new Set()).result,'correct');
 assert.equal(evaluateExternalNotes(target,[],new Set()).result,'waiting');
+for (let pitch=0; pitch<12; pitch++) for (let octave=1; octave<=8; octave++) {
+  assert.equal(evaluateExternalNotes([{midi:60+pitch}],[(octave+1)*12+pitch],new Set()).result,'correct');
+  assert.equal(evaluateExternalNotes([{midi:60+pitch}],[(octave+1)*12+(pitch+1)%12],new Set()).result,'wrong');
+}
 
 // Exercise the real browser capture service without accessing a physical microphone.
 const { startMicrophone }=require('../src/services/microphoneCapture.web.ts');

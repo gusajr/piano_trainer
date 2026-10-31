@@ -15,6 +15,8 @@ interface KeyDef {
 }
 
 interface PianoKeyboardProps {
+  disabled?: boolean;
+  keyHeight?: number;
   onNotePress: (note: string) => void;
   correctNote?: string | null;
   pressedNote?: string | null;
@@ -40,6 +42,8 @@ export default function PianoKeyboard({
   rangeNotes = [],
   onNoteDown,
   onNoteUp,
+  disabled = false,
+  keyHeight = 180,
 }: PianoKeyboardProps) {
   const [startOctave, setStartOctave] = useState<number>(4);
   const [previousRange, setPreviousRange] = useState('');
@@ -96,9 +100,9 @@ export default function PianoKeyboard({
   });
 
   const whiteKeyWidth = keyboardWidth / whiteKeys.length;
-  const whiteKeyHeight = 180;
+  const whiteKeyHeight = keyHeight;
   const blackKeyWidth = whiteKeyWidth * 0.62;
-  const blackKeyHeight = 108;
+  const blackKeyHeight = keyHeight * 0.6;
 
   const getWhiteKeyColor = (note: string) => {
     if (isPressed(note)) return '#BB86FC';
@@ -151,7 +155,7 @@ export default function PianoKeyboard({
           {whiteKeys.map((key) => (
             <PianoKey
               key={key.note}
-              note={key.note} onDown={down} onUp={up} onPress={onNotePress}
+              note={key.note} onDown={down} onUp={up} onPress={onNotePress} disabled={disabled}
               style={[
                 styles.whiteKey,
                 {
@@ -199,7 +203,7 @@ export default function PianoKeyboard({
             return (
               <PianoKey
                 key={key.note}
-                note={key.note} onDown={down} onUp={up} onPress={onNotePress}
+                note={key.note} onDown={down} onUp={up} onPress={onNotePress} disabled={disabled}
                 style={[
                   styles.blackKey,
                   {

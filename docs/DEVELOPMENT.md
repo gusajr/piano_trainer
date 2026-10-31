@@ -74,7 +74,7 @@ Microphone answers compare pitch classes: C2, C3 and C4 all satisfy a C target,
 including octave doublings within a chord. Accidentals remain distinct. The
 on-screen keyboard still uses exact MIDI pitches. For repeated notes, briefly
 release the key and let the sound fall below the sensitivity threshold. Adjust
-sensitivity while stopped. Simple simultaneous notes are estimated; use separate
+sensitivity while stopped (the default is low). Simple simultaneous notes are estimated; use separate
 notes for chords the detector cannot separate, especially with sustain pedal,
 strong overtones or ambient sound.
 

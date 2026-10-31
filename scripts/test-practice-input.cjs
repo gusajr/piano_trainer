@@ -65,6 +65,7 @@ try {
   reset();
   const mic=find(render(),'MicrophoneInput').props;
   mic.onActiveChange(true);
+  assert.equal(find(render(),'PianoKeyboard').props.disabled,true); // Keep reference keys visible without feeding sound into the mic.
   mic.onNotes([36]); assert.equal(store.getState().currentNoteIndex,0);
   mic.onNotes([52]); assert.equal(store.getState().currentNoteIndex,2);
   mic.onNotes([72,76]); assert.equal(store.getState().currentNoteIndex,4);

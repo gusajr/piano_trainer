@@ -30,6 +30,7 @@ interface StaffProps {
   currentNoteIndices?: number[];
   clef: 'treble' | 'bass';
   width?: number;
+  maxHeight?: number;
   showNoteNames?: boolean;
   playbackTime?: number;
   playbackActive?: boolean;
@@ -41,6 +42,7 @@ export default function Staff({
   currentNoteIndices,
   clef,
   width = 340,
+  maxHeight,
   showNoteNames = true,
   playbackTime,
   playbackActive = true,
@@ -67,10 +69,10 @@ export default function Staff({
     const bottomExtent = Math.max(STEP * 8, maxRaw) + margin;
 
     const staffTop = -topExtent;
-    const totalH = Math.max(200, bottomExtent - topExtent);
+    const totalH = Math.max(maxHeight ? 110 : 200, bottomExtent - topExtent);
 
     return { staffTopY: staffTop, svgHeight: totalH, rawYs: computedRaw };
-  }, [notes, clef]);
+  }, [notes, clef, maxHeight]);
 
   const staffLinesY = [
     staffTopY,
@@ -295,6 +297,7 @@ export default function Staff({
             );
           }), [positionedNotes, highlightIndices, playbackMode, playedIndex, showNoteNames, staffTopY]);
 
+  const displayHeight = maxHeight ? Math.min(svgHeight, maxHeight) : svgHeight;
   return (
     <View style={[styles.container, { width }]}>
       <ScrollView
@@ -302,9 +305,9 @@ export default function Staff({
         horizontal
         showsHorizontalScrollIndicator={true}
         contentContainerStyle={{ minWidth: width }}
-        style={{ width }}
+        style={{ width, height: displayHeight, flexGrow: 0 }}
       >
-        <Svg width={calculatedWidth} height={svgHeight}>
+        <Svg width={calculatedWidth} height={displayHeight} viewBox={`0 0 ${calculatedWidth} ${svgHeight}`} preserveAspectRatio="none">
           {/* 5 Staff lines */}
           {staffLinesY.map((y, i) => (
             <Line

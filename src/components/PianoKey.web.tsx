@@ -2,10 +2,10 @@ import React from 'react';
 import { View } from 'react-native';
 import type { PianoKeyProps } from './PianoKey';
 
-export default function PianoKey({ note, onDown, onUp, onPress, style, children }: PianoKeyProps) {
+export default function PianoKey({ note, onDown, onUp, onPress, style, children, disabled }: PianoKeyProps) {
   return <View style={style}>
     <View pointerEvents="none">{children}</View>
-    <button type="button" aria-label={note}
+    <button type="button" aria-label={note} disabled={disabled}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
         background: 'transparent', border: 0, borderRadius: 'inherit', cursor: 'pointer',
         touchAction: 'none', userSelect: 'none' }}

@@ -116,6 +116,7 @@ const summary = StyleSheet.create({
 
 export default function PracticeScreen() {
   const { width: screenWidth } = useWindowDimensions();
+  const [workspaceHeight, setWorkspaceHeight] = useState(500);
   const {
     midiData,
     segmentNotes,
@@ -310,7 +311,17 @@ export default function PracticeScreen() {
         ))}
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.controlsRow}>
+        <TouchableOpacity disabled={microphoneActive} style={[styles.playBtn, microphoneActive && { opacity: 0.4 }]} onPress={handlePlayFragment}>
+          <Text style={styles.playBtnText}>▶ Escuchar</Text>
+        </TouchableOpacity>
+        {practiceMode === 'B' && !revealedMode && <TouchableOpacity style={styles.revealBtn} onPress={handleRevealModeB}>
+          <Text style={styles.revealBtnText}>👁️ Revelar</Text>
+        </TouchableOpacity>}
+        <MicrophoneInput compact key={`${practiceMode}:${startMeasure}:${measureCount}`} onNotes={handleExternalNotes} onActiveChange={handleMicrophoneActive} />
+      </View>
+
+      <View testID="practice-workspace" style={styles.workspace} onLayout={(event) => setWorkspaceHeight(event.nativeEvent.layout.height)}>
         {/* ── Progress ── */}
         <View style={styles.progressRow}>
           <Text style={styles.progressText}>
@@ -325,38 +336,22 @@ export default function PracticeScreen() {
         </View>
 
         {/* ── Staff ── */}
-        <View style={styles.staffWrapper}>
+        <View testID="practice-score" style={styles.staffWrapper}>
           <Staff
             notes={segmentNotes}
             currentNoteIndex={currentNoteIndex}
             currentNoteIndices={currentChord.map((_, offset) => currentNoteIndex + offset)}
             clef={clef}
             width={screenWidth - 32}
+            maxHeight={Math.max(72, Math.min(200, (workspaceHeight - 230) * 0.45))}
             showNoteNames={showStaffLabels}
           />
         </View>
 
-        {/* ── Playback & Mode B controls ── */}
-        <View style={styles.controlsRow}>
-          <TouchableOpacity disabled={microphoneActive} style={[styles.playBtn, microphoneActive && { opacity: 0.4 }]} onPress={handlePlayFragment}>
-            <Text style={styles.playBtnText}>▶  Escuchar</Text>
-          </TouchableOpacity>
-
-          {practiceMode === 'B' && !revealedMode && (
-            <TouchableOpacity
-              style={styles.revealBtn}
-              onPress={handleRevealModeB}
-            >
-              <Text style={styles.revealBtnText}>👁️ Revelar</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <MicrophoneInput key={`${practiceMode}:${startMeasure}:${measureCount}`} onNotes={handleExternalNotes} onActiveChange={handleMicrophoneActive} />
-
         {/* ── Current note hint (Mode A) ── */}
         {practiceMode === 'A' && currentNote && (
           <View
+            testID="practice-target"
             style={[
               styles.noteHint,
               feedback === 'correct' && styles.noteHintCorrect,
@@ -364,17 +359,15 @@ export default function PracticeScreen() {
             ]}
           >
             <Text style={styles.noteHintLabel}>{currentChord.length > 1 ? 'Toca estas notas juntas o por separado:' : 'Toca esta nota:'}</Text>
-            <Text style={[styles.noteHintName, currentChord.length > 1 && { fontSize: 30 }]}>{currentChord.map((n) => n.name).join(' + ')}</Text>
+            <Text style={[styles.noteHintName, currentChord.length > 1 && { fontSize: 26 }]}>{currentChord.map((n) => n.name).join(' + ')}</Text>
             {currentChord.length > 1 && <Text style={styles.noteHintLabel}>
               {currentChord.filter((n) => !completedPitches.includes(n.midi)).map((n) => n.name).join(' + ')
                 ? `Faltan: ${currentChord.filter((n) => !completedPitches.includes(n.midi)).map((n) => n.name).join(' + ')}`
                 : '¡Completo! Suelta las teclas para continuar.'}
             </Text>}
-            {feedback && (
-              <Text style={styles.noteHintFeedback}>
-                {feedback === 'correct' ? '✅ ¡Correcto!' : '❌ Incorrecto — Inténtalo de nuevo'}
-              </Text>
-            )}
+            <Text style={styles.noteHintFeedback} numberOfLines={1}>
+              {feedback === 'correct' ? '✅ ¡Correcto!' : feedback === 'wrong' ? '❌ Incorrecto — Inténtalo de nuevo' : ' '}
+            </Text>
           </View>
         )}
 
@@ -388,14 +381,11 @@ export default function PracticeScreen() {
           </View>
         )}
 
-        <View style={{ height: 16 }} />
-      </ScrollView>
-
       {/* ── Piano keyboard ── */}
-      <View style={styles.keyboardWrapper}>
-        {microphoneActive ? <Text style={{ color: '#B0BEC5', textAlign: 'center', padding: 12 }}>
-          🎤 Toca en tu piano externo. Detén el micrófono para volver al teclado de pantalla o escuchar el fragmento.
-        </Text> : <PianoKeyboard
+      <View testID="practice-keyboard" style={styles.keyboardWrapper}>
+        <PianoKeyboard
+          disabled={microphoneActive}
+          keyHeight={Math.max(80, Math.min(180, (workspaceHeight - 230) * 0.55))}
           onNotePress={(name) => { handleNoteDown(name); handleNoteUp(name); }}
           onNoteDown={handleNoteDown}
           onNoteUp={handleNoteUp}
@@ -405,7 +395,8 @@ export default function PracticeScreen() {
           correctNotes={practiceMode === 'A' ? currentChord.filter((n) => !completedPitches.includes(n.midi)).map((n) => Note.fromMidiSharps(n.midi)) : []}
           rangeNotes={currentChord.map((n) => Note.fromMidiSharps(n.midi))}
           pressedNotes={pressedNotes}
-        />}
+        />
+      </View>
       </View>
     </View>
   );
@@ -456,43 +447,43 @@ const styles = StyleSheet.create({
   modeBtnText: { color: '#888', fontSize: 12, fontWeight: '600' },
   modeBtnTextActive: { color: '#BB86FC' },
 
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16 },
+  workspace: { flex: 1, minHeight: 0, padding: 12, gap: 8, justifyContent: 'center' },
 
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
   },
   progressText: { color: '#888', fontSize: 12 },
 
   staffWrapper: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
     borderRadius: 12,
     overflow: 'hidden',
   },
 
   controlsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
+    gap: 6,
+    alignItems: 'flex-start',
+    padding: 8,
   },
   playBtn: {
     flex: 1,
     backgroundColor: '#1E1E2E',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 10,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#BB86FC55',
   },
   playBtnText: { color: '#BB86FC', fontWeight: '700', fontSize: 14 },
   revealBtn: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     backgroundColor: '#1E1E2E',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 10,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#03DAC6',
@@ -526,26 +517,26 @@ const styles = StyleSheet.create({
   noteHint: {
     backgroundColor: '#1A1330',
     borderRadius: 14,
-    padding: 16,
+    padding: 8,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#BB86FC33',
   },
   noteHintCorrect: { borderColor: '#03DAC6', backgroundColor: '#00312E' },
   noteHintWrong: { borderColor: '#CF6679', backgroundColor: '#3B0D18' },
-  noteHintLabel: { color: '#888', fontSize: 12, marginBottom: 6 },
+  noteHintLabel: { color: '#888', fontSize: 11, marginBottom: 2 },
   noteHintName: {
-    fontSize: 44,
+    fontSize: 32,
     fontWeight: '900',
     color: '#BB86FC',
     letterSpacing: 2,
   },
-  noteHintFeedback: { color: '#E0E0E0', fontSize: 15, marginTop: 6 },
+  noteHintFeedback: { color: '#E0E0E0', fontSize: 12, marginTop: 2 },
 
   keyboardWrapper: {
     backgroundColor: '#0D0D14',
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingTop: 4,
+    paddingBottom: 4,
     borderTopWidth: 1,
     borderTopColor: '#252535',
   },
