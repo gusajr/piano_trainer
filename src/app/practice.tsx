@@ -16,6 +16,8 @@ import PianoKeyboard from '../components/PianoKeyboard';
 import SongTheoryPanel from '../components/SongTheoryPanel';
 import FragmentPlayer from '../components/FragmentPlayer';
 import { practiceChord, evaluateChordProgress } from '../services/practiceChord';
+import MicrophoneInput from '../components/MicrophoneInput';
+import { evaluateExternalNotes } from '../services/externalPractice';
 
 // ─── Progress bar ──────────────────────────────────────────────────────────
 function ProgressBar({ current, total }: { current: number; total: number }) {
@@ -129,6 +131,9 @@ export default function PracticeScreen() {
 
   const [pressedNotes, setPressedNotes] = useState<string[]>([]);
   const [completedPitches, setCompletedPitches] = useState<number[]>([]);
+  const [microphoneActive, setMicrophoneActive] = useState(false);
+  const externalPlayed = useRef(new Set<number>());
+  const externalTarget = useRef<typeof segmentNotes[number] | undefined>(undefined);
   const heldNotes = useRef(new Set<number>());
   const playedNotes = useRef(new Set<number>());
   const progressTarget = useRef<typeof segmentNotes[number] | undefined>(undefined);
@@ -147,7 +152,7 @@ export default function PracticeScreen() {
 
   // ── Playback ──────────────────────────────────────────────────────────────
   const handlePlayFragment = useCallback(async () => {
-    if (!midiData || segmentNotes.length === 0) return;
+    if (microphoneActive || !midiData || segmentNotes.length === 0) return;
     const tempo = midiData.tempo;
     // Normalize times so segment starts at 0
     const startTime = segmentNotes[0].time;
@@ -157,7 +162,26 @@ export default function PracticeScreen() {
       duration: n.duration,
     }));
     await playSequence(normalized, tempo);
-  }, [midiData, segmentNotes]);
+  }, [microphoneActive, midiData, segmentNotes]);
+
+  const handleMicrophoneActive = useCallback((active: boolean) => {
+    setMicrophoneActive(active);
+    heldNotes.current.clear(); playedNotes.current.clear(); externalPlayed.current.clear();
+    acceptedChord.current = null; externalTarget.current = undefined;
+    setPressedNotes([]); setCompletedPitches([]); setFeedback(null);
+  }, []);
+  const handleExternalNotes = useCallback((pitches: number[]) => {
+    const session = usePracticeStore.getState();
+    const target = practiceChord(session.segmentNotes, session.currentNoteIndex);
+    if (!target.length) return;
+    if (externalTarget.current !== target[0]) { externalTarget.current = target[0]; externalPlayed.current.clear(); }
+    const evaluation = evaluateExternalNotes(target, pitches, externalPlayed.current);
+    externalPlayed.current = evaluation.matched;
+    setCompletedPitches([...evaluation.matched]);
+    setFeedback(evaluation.result === 'waiting' ? null : evaluation.result === 'correct' ? 'correct' : 'wrong');
+    if (evaluation.result !== 'waiting') session.recordChordAnswer(evaluation.result === 'correct');
+    if (evaluation.result === 'correct') { externalPlayed.current.clear(); setCompletedPitches([]); }
+  }, []);
 
   // ── Note press ─────────────────────────────────────────────────────────────
   const handleNoteDown = useCallback(
@@ -314,7 +338,7 @@ export default function PracticeScreen() {
 
         {/* ── Playback & Mode B controls ── */}
         <View style={styles.controlsRow}>
-          <TouchableOpacity style={styles.playBtn} onPress={handlePlayFragment}>
+          <TouchableOpacity disabled={microphoneActive} style={[styles.playBtn, microphoneActive && { opacity: 0.4 }]} onPress={handlePlayFragment}>
             <Text style={styles.playBtnText}>▶  Escuchar</Text>
           </TouchableOpacity>
 
@@ -327,6 +351,8 @@ export default function PracticeScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        <MicrophoneInput key={`${practiceMode}:${startMeasure}:${measureCount}`} onNotes={handleExternalNotes} onActiveChange={handleMicrophoneActive} />
 
         {/* ── Current note hint (Mode A) ── */}
         {practiceMode === 'A' && currentNote && (
@@ -367,7 +393,9 @@ export default function PracticeScreen() {
 
       {/* ── Piano keyboard ── */}
       <View style={styles.keyboardWrapper}>
-        <PianoKeyboard
+        {microphoneActive ? <Text style={{ color: '#B0BEC5', textAlign: 'center', padding: 12 }}>
+          🎤 Toca en tu piano externo. Detén el micrófono para volver al teclado de pantalla o escuchar el fragmento.
+        </Text> : <PianoKeyboard
           onNotePress={(name) => { handleNoteDown(name); handleNoteUp(name); }}
           onNoteDown={handleNoteDown}
           onNoteUp={handleNoteUp}
@@ -377,7 +405,7 @@ export default function PracticeScreen() {
           correctNotes={practiceMode === 'A' ? currentChord.filter((n) => !completedPitches.includes(n.midi)).map((n) => Note.fromMidiSharps(n.midi)) : []}
           rangeNotes={currentChord.map((n) => Note.fromMidiSharps(n.midi))}
           pressedNotes={pressedNotes}
-        />
+        />}
       </View>
     </View>
   );

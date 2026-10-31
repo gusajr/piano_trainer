@@ -39,7 +39,8 @@
     "test:theory": "node scripts/test-theory.cjs",
     "test:audio": "node scripts/test-offline-audio.cjs",
     "test:playback": "node scripts/test-playback.cjs",
-    "test:input": "node scripts/test-practice-input.cjs"
+    "test:input": "node scripts/test-practice-input.cjs",
+    "test:microphone": "node scripts/test-microphone.cjs"
   },
   "private": true
 }

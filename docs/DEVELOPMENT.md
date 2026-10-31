@@ -61,3 +61,27 @@ The `production` profile is for store distribution and increments the build
 number automatically; it does not submit the application to the App Store.
 
 Reference: https://docs.expo.dev/build/internal-distribution/
+
+## External piano through a microphone (web)
+
+In practice, choose **Activar micrófono** and allow microphone access. Use an
+HTTPS deployment (such as Netlify) or localhost. The browser analyses the audio
+locally with Web Audio; no recording is saved or uploaded. Stop listening before
+playing the app's own preview. Listening also stops on navigation, backgrounding,
+or completion of the fragment.
+
+Microphone answers compare pitch classes: C2, C3 and C4 all satisfy a C target,
+including octave doublings within a chord. Accidentals remain distinct. The
+on-screen keyboard still uses exact MIDI pitches. For repeated notes, briefly
+release the key and let the sound fall below the sensitivity threshold. Adjust
+sensitivity while stopped. Simple simultaneous notes are estimated; use separate
+notes for chords the detector cannot separate, especially with sustain pedal,
+strong overtones or ambient sound.
+
+Expo Go does not expose live microphone PCM through expo-audio. The native screen
+therefore directs users to the web version rather than attempting an unavailable
+native module. A future native live analyser would require a development build.
+
+Run `npm run test:microphone` for synthetic pitch/noise/chord and browser-capture
+lifecycle tests, and `npm run test:input` for practice-screen evaluation. These do
+not replace verification with a physical piano and the target phone microphone.

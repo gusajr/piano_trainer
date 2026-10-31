@@ -50,6 +50,8 @@ try {
   tap('C4'); assert.equal(store.getState().currentNoteIndex,4);
   tap('G4'); assert.equal(store.getState().currentNoteIndex,5);
   assert.deepEqual(store.getState().answers,[true,true,true,true,true]);
+  reset(); tap('C3'); tap('E4');
+  assert.equal(store.getState().currentNoteIndex,0); // The screen keyboard still requires the original octave.
   reset();
   let keyboard=find(render(),'PianoKeyboard').props;
   keyboard.onNoteDown('C4'); keyboard.onNoteDown('C4'); keyboard.onNoteDown('E4');
@@ -60,5 +62,13 @@ try {
   reset(); tap('D4'); tap('C4'); tap('E4');
   assert.equal(store.getState().currentNoteIndex,2);
   assert.deepEqual(store.getState().answers,[false,false]);
+  reset();
+  const mic=find(render(),'MicrophoneInput').props;
+  mic.onActiveChange(true);
+  mic.onNotes([36]); assert.equal(store.getState().currentNoteIndex,0);
+  mic.onNotes([52]); assert.equal(store.getState().currentNoteIndex,2);
+  mic.onNotes([72,76]); assert.equal(store.getState().currentNoteIndex,4);
+  mic.onNotes([43]); assert.equal(store.getState().currentNoteIndex,5);
+  assert.deepEqual(store.getState().answers,[true,true,true,true,true]);
   console.log('Practice screen input passed: separate clicks, reverse order, repeated chords, multitouch, duplicate events and error correction.');
 } finally { Module._load=originalLoad; }
