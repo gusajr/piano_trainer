@@ -38,9 +38,22 @@ require.extensions['.mp3'] = (module, filename) => {
 };
 const originalLoad = Module._load;
 const originalTimeout = global.setTimeout;
+const originalClearTimeout = global.clearTimeout;
+const originalPerformance = global.performance;
 let platform = 'ios';
 const played = [];
 const scheduled = [];
+let now = 0;
+const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+const advance = async (ms) => {
+  const end = now + ms;
+  while (true) {
+    const next = scheduled.filter((t) => t.active && t.at <= end).sort((a, b) => a.at - b.at)[0];
+    if (!next) break;
+    now = next.at; next.active = false; next.callback(); await flush();
+  }
+  now = end; await flush();
+};
 let samplerCount = 0;
 let samplerUrls;
 class Instrument {
@@ -65,7 +78,9 @@ Module._load = function (request, ...rest) {
   };
   return originalLoad.call(this, request, ...rest);
 };
-global.setTimeout = (callback, delay) => { scheduled.push({ callback, delay }); return scheduled.length; };
+global.setTimeout = (callback, delay) => { scheduled.push({ callback, at: now + delay, active: true }); return scheduled.length; };
+global.clearTimeout = (id) => { if (scheduled[id - 1]) scheduled[id - 1].active = false; };
+global.performance = { now: () => now };
 
 (async () => {
   try {
@@ -90,10 +105,37 @@ global.setTimeout = (callback, delay) => { scheduled.push({ callback, delay }); 
     }
     await web.playNote('F#4');
     await web.playSequence([{ name: 'C4', time: 0, duration: 0.6 }, { name: 'E4', time: 0.3, duration: 0.2 }], 100);
-    assert.deepEqual(played, [['F#4', '2n'], ['C4', 0.6, 10], ['E4', 0.2, 10.3]]);
+    await flush(); await advance(0);
+    assert.deepEqual(played, [['F#4', '2n'], ['C4', 0.6]]);
+    web.stopAll(); await advance(500);
+    assert.equal(played.length, 2); // No pre-scheduled E4 can survive Stop.
+
+    for (const [name, api] of [['web', web], ['native', native]]) {
+      played.length = 0;
+      const makePlan = (pitch) => ({ notes: [{ name: pitch, midi: Note.midi(pitch), time: 0, duration: 0.1 }], duration: 0.2 });
+      let stopped = 0;
+      const options = { loop: true, onProgress() {}, onComplete() { throw Error('A loop should not end'); },
+        onError(error) { throw error; }, onStop() { stopped++; } };
+      api.startTrackedPlayback(makePlan('C4'), options);
+      await flush(); await advance(650);
+      assert(played.length >= 4, `${name} preview must repeat indefinitely`);
+      api.startTrackedPlayback(makePlan('E4'), options);
+      const switchAt = played.length;
+      await flush(); await advance(650);
+      assert.equal(stopped, 1);
+      assert(played.slice(switchAt).every((event) => name === 'native' ? event === 64 : event[0] === 'E4'), `${name} old track leaked`);
+      api.stopAll(); const stopAt = played.length; await advance(1000);
+      assert.equal(played.length, stopAt);
+      assert.equal(stopped, 2);
+      api.startTrackedPlayback(makePlan('C4'), options);
+      api.stopAll(); await flush(); await advance(500);
+      assert.equal(played.length, stopAt); // Stop while preparation is still pending.
+    }
     console.log('Offline audio checks passed: 88 intact samples, native local assets, web local sampler, single initialization.');
   } finally {
     Module._load = originalLoad;
     global.setTimeout = originalTimeout;
+    global.clearTimeout = originalClearTimeout;
+    global.performance = originalPerformance;
   }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

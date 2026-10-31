@@ -79,21 +79,6 @@ class WebAudioEngine {
     }
   }
 
-  async playSequence(notes: { name: string; time: number; duration?: number }[], _tempo: number) {
-    await this.preparePlayback();
-    try {
-      const now = this.Tone ? this.Tone.now() : 0;
-      const instrument = (this.loaded && this.sampler) ? this.sampler : this.synth;
-      if (!instrument) return;
-
-      notes.forEach((note) => {
-        instrument.triggerAttackRelease(note.name, note.duration ?? '8n', now + note.time);
-      });
-    } catch (e) {
-      console.warn('[WebAudio] playSequence error:', e);
-    }
-  }
-
   stopAll() {
     this.generation++;
     try {
@@ -138,12 +123,6 @@ class NativeAudioEngine {
     }
   }
 
-  async playSequence(notes: { name: string; time: number }[], _tempo: number) {
-    notes.forEach((note) => {
-      setTimeout(() => this.playNote(note.name), note.time * 1000);
-    });
-  }
-
   stopAll() {
     this.generation++;
     this.activePlayers.forEach((player) => {
@@ -184,10 +163,14 @@ export async function playNote(note: string) {
 
 export async function playSequence(
   notes: { name: string; time: number; duration?: number }[],
-  tempo: number,
+  _tempo: number,
 ) {
-  if (!engine) await initAudioEngine();
-  await engine!.playSequence(notes, tempo);
+  const normalized = notes.map((note) => ({ ...note, duration: note.duration ?? 0.25,
+    midi: Note.midi(note.name) ?? 60, velocity: 1, trackIndex: 0 }));
+  startTrackedPlayback({ notes: normalized,
+    duration: normalized.reduce((end, note) => Math.max(end, note.time + note.duration), 0) }, {
+    onProgress: () => {}, onComplete: () => {}, onError: console.error,
+  });
 }
 
 export function stopAll() {
@@ -200,6 +183,8 @@ export function startTrackedPlayback(plan: PlaybackPlan, callbacks: {
   onProgress: (seconds: number) => void;
   onComplete: () => void;
   onError: (error: unknown) => void;
+  onStop?: () => void;
+  loop?: boolean;
 }): () => void {
   stopAll();
   let cancelled = false;
@@ -210,17 +195,27 @@ export function startTrackedPlayback(plan: PlaybackPlan, callbacks: {
     stopTimeline?.();
     engine?.stopAll();
     if (stopTrackedPlayback === stop) stopTrackedPlayback = null;
+    callbacks.onStop?.();
   };
   stopTrackedPlayback = stop;
   void (async () => {
     await initAudioEngine();
     await engine!.preparePlayback();
     if (cancelled) return;
-    stopTimeline = startPlaybackTimeline(plan, {
-      onNote: (note) => { void engine!.playNote(note.name, note.duration).catch(callbacks.onError); },
-      onProgress: callbacks.onProgress,
-      onComplete: () => { stop(); callbacks.onComplete(); },
-    });
+    const begin = () => {
+      if (cancelled) return;
+      stopTimeline = startPlaybackTimeline({ ...plan, duration: Math.max(0.05, plan.duration) }, {
+        onNote: (note) => { void engine!.playNote(note.name, note.duration).catch(callbacks.onError); },
+        onProgress: callbacks.onProgress,
+        onComplete: () => {
+          if (callbacks.loop && !cancelled && plan.notes.length) {
+            engine!.stopAll();
+            begin();
+          } else { stop(); callbacks.onComplete(); }
+        },
+      });
+    };
+    begin();
   })().catch((error) => { if (!cancelled) { stop(); callbacks.onError(error); } });
   return stop;
 }

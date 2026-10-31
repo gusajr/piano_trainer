@@ -184,19 +184,21 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
 
   setStartMeasure: (start) => {
     const { midiData, trackAssignments, activeHand, measureCount, totalMeasures } = get();
-    const validStart = Math.max(1, Math.min(totalMeasures, start));
-    set({ startMeasure: validStart });
+    const validStart = Math.max(1, Math.min(totalMeasures, Math.floor(start) || 1));
+    const validCount = Math.min(measureCount, totalMeasures - validStart + 1);
+    set({ startMeasure: validStart, measureCount: validCount });
     if (midiData) {
-      const notes = computeMeasures(midiData, trackAssignments, activeHand, validStart, measureCount, get().splitPoint);
+      const notes = computeMeasures(midiData, trackAssignments, activeHand, validStart, validCount, get().splitPoint);
       set({ segmentNotes: notes, currentNoteIndex: 0, answers: [] });
     }
   },
 
   setMeasureCount: (count) => {
-    const { midiData, trackAssignments, activeHand, startMeasure } = get();
-    set({ measureCount: count });
+    const { midiData, trackAssignments, activeHand, startMeasure, totalMeasures } = get();
+    const validCount = Math.max(1, Math.min(totalMeasures - startMeasure + 1, Math.floor(count) || 1));
+    set({ measureCount: validCount });
     if (midiData) {
-      const notes = computeMeasures(midiData, trackAssignments, activeHand, startMeasure, count, get().splitPoint);
+      const notes = computeMeasures(midiData, trackAssignments, activeHand, startMeasure, validCount, get().splitPoint);
       set({ segmentNotes: notes, currentNoteIndex: 0, answers: [] });
     }
   },

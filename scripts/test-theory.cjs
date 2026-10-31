@@ -176,6 +176,24 @@ usePracticeStore.getState().recordChordAnswer(true);
 assert.equal(usePracticeStore.getState().currentNoteIndex, 3);
 assert.deepEqual(usePracticeStore.getState().answers, [false, false, true]);
 
+// Long songs permit arbitrary fragment lengths up to the final measure.
+const longSong = new Midi();
+const longTrack = longSong.addTrack();
+for (let i = 0; i < 54; i++) longTrack.addNote({ midi: 60, ticks: i * 1920, durationTicks: 480 });
+usePracticeStore.getState().loadMidi(parse(longSong), '54-measures.mid');
+usePracticeStore.getState().setMeasureCount(54);
+assert.equal(usePracticeStore.getState().measureCount, 54);
+assert.equal(usePracticeStore.getState().segmentNotes.length, 54);
+usePracticeStore.getState().setStartMeasure(50);
+assert.equal(usePracticeStore.getState().measureCount, 5);
+assert.equal(usePracticeStore.getState().segmentNotes.length, 5);
+usePracticeStore.getState().setMeasureCount(999);
+assert.equal(usePracticeStore.getState().measureCount, 5);
+usePracticeStore.getState().setMeasureCount(3);
+assert.equal(usePracticeStore.getState().segmentNotes.length, 3);
+usePracticeStore.getState().setStartMeasure(54);
+assert.equal(usePracticeStore.getState().measureCount, 1);
+
 if (process.argv[2]) {
   const bytes = fs.readFileSync(process.argv[2]);
   const example = parseMidi(Uint8Array.from(bytes).buffer);

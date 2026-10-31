@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { ParsedTrack, HandAssignment, usePracticeStore } from '../store/practiceStore';
-import { playSequence, stopAll } from '../services/audioEngine';
+import { startTrackedPlayback } from '../services/audioEngine';
+import { buildPlaybackPlan } from '../services/playbackTimeline';
 import { Note } from '@tonaljs/tonal';
 
 interface HandPickerProps {
@@ -23,50 +25,38 @@ const HAND_COLORS: Record<HandAssignment, string> = {
 };
 
 export default function HandPicker({ tracks }: HandPickerProps) {
-  const { trackAssignments, setTrackAssignment, midiData, splitPoint, setSplitPoint } = usePracticeStore();
+  const { trackAssignments, setTrackAssignment, splitPoint, setSplitPoint } = usePracticeStore();
   const [playingTrackIndex, setPlayingTrackIndex] = useState<number | null>(null);
+  const playing = useRef<number | null>(null);
+  const stopPreview = useRef<(() => void) | null>(null);
+  const cancel = useCallback(() => {
+    stopPreview.current?.(); stopPreview.current = null;
+    playing.current = null; setPlayingTrackIndex(null);
+  }, []);
+  useEffect(() => () => cancel(), [cancel, tracks]);
+  useFocusEffect(useCallback(() => {
+    const subscription = AppState.addEventListener('change', (state) => { if (state !== 'active') cancel(); });
+    return () => { subscription.remove(); cancel(); };
+  }, [cancel]));
 
-  const handlePreviewTrack = async (track: ParsedTrack) => {
-    if (playingTrackIndex === track.index) {
-      stopAll();
-      setPlayingTrackIndex(null);
-      return;
-    }
-
-    stopAll();
+  const handlePreviewTrack = (track: ParsedTrack) => {
+    const wasPlaying = playing.current === track.index;
+    cancel();
+    if (wasPlaying || !track.notes.length) return;
+    playing.current = track.index;
     setPlayingTrackIndex(track.index);
-
-    // Play a preview of the track (first 16 notes or up to 6 seconds)
-    const previewNotes = track.notes.slice(0, 20);
-    if (previewNotes.length === 0) {
-      setPlayingTrackIndex(null);
-      return;
-    }
-
-    const start = previewNotes[0].time;
-    const normalized = previewNotes.map((n) => ({
-      name: n.name,
-      time: n.time - start,
-    }));
-
-    const tempo = midiData?.tempo || 120;
-    await playSequence(normalized, tempo);
-
-    // Auto-reset preview icon after duration
-    const durationMs = Math.min(
-      6000,
-      ((previewNotes[previewNotes.length - 1].time - start) + 1) * 1000
-    );
-    setTimeout(() => {
-      setPlayingTrackIndex((current) => (current === track.index ? null : current));
-    }, durationMs);
+    stopPreview.current = startTrackedPlayback(buildPlaybackPlan(track.notes), {
+      loop: true, onProgress: () => {}, onComplete: () => {},
+      onStop: () => { playing.current = null; setPlayingTrackIndex(null); },
+      onError: (error) => { console.error(error); cancel(); },
+    });
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🎹 Asignar Tracks a Mano</Text>
       <Text style={styles.subtitle}>
-        Escucha una vista previa de cada track para saber si es melodía o bajo, y asígnalo
+        Escucha cada pista en bucle. Se detiene al pulsar Detener o al escuchar otra pista.
       </Text>
 
       {Object.values(trackAssignments).includes('split') && <View style={styles.trackCard}>

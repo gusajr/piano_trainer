@@ -1,8 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList } from 'react-native';
 import { usePracticeStore } from '../store/practiceStore';
-
-const CONTINUOUS_MEASURE_OPTIONS = [1, 2, 3, 4, 8];
 
 export default function SegmentPicker() {
   const {
@@ -36,12 +34,13 @@ export default function SegmentPicker() {
       {/* Selector de cantidad de compases continuos */}
       <View style={styles.section}>
         <Text style={styles.label}>Compases continuos a memorizar:</Text>
-        <ScrollView
+        <FlatList
           horizontal
+          data={Array.from({ length: totalMeasures - startMeasure + 1 }, (_, i) => i + 1)}
+          keyExtractor={(count) => String(count)}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.optionsScrollContent}
-        >
-          {CONTINUOUS_MEASURE_OPTIONS.map((count) => {
+          renderItem={({ item: count }) => {
             const isSelected = measureCount === count;
             return (
               <TouchableOpacity
@@ -51,12 +50,15 @@ export default function SegmentPicker() {
                 onPress={() => setMeasureCount(count)}
               >
                 <Text style={[styles.countBtnText, isSelected && styles.countBtnTextActive]}>
-                  {count} {count === 1 ? 'compás' : 'compases'}
+                  {count} {count === 1 ? 'compás' : 'compases'}{count === totalMeasures - startMeasure + 1 ? ' · hasta el final' : ''}
                 </Text>
               </TouchableOpacity>
             );
-          })}
-        </ScrollView>
+          }}
+        />
+        <TouchableOpacity style={styles.countBtn} onPress={() => setMeasureCount(totalMeasures - startMeasure + 1)}>
+          <Text style={styles.countBtnText}>Seleccionar hasta el final ({totalMeasures - startMeasure + 1} compases)</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Navegador principal de compases - Más grande, cómodo y legible */}

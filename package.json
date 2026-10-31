@@ -38,7 +38,8 @@
     "lint": "expo lint",
     "test:theory": "node scripts/test-theory.cjs",
     "test:audio": "node scripts/test-offline-audio.cjs",
-    "test:playback": "node scripts/test-playback.cjs"
+    "test:playback": "node scripts/test-playback.cjs",
+    "test:input": "node scripts/test-practice-input.cjs"
   },
   "private": true
 }

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import PianoKey from './PianoKey';
 
 interface KeyDef {
   note: string;
@@ -95,9 +96,9 @@ export default function PianoKeyboard({
   });
 
   const whiteKeyWidth = keyboardWidth / whiteKeys.length;
-  const whiteKeyHeight = 110;
+  const whiteKeyHeight = 180;
   const blackKeyWidth = whiteKeyWidth * 0.62;
-  const blackKeyHeight = 68;
+  const blackKeyHeight = 108;
 
   const getWhiteKeyColor = (note: string) => {
     if (isPressed(note)) return '#BB86FC';
@@ -148,9 +149,9 @@ export default function PianoKeyboard({
         {/* White keys */}
         <View style={[styles.whiteKeysRow, { width: keyboardWidth }]}>
           {whiteKeys.map((key) => (
-            <View
+            <PianoKey
               key={key.note}
-              accessible accessibilityRole="button" accessibilityLabel={key.note}
+              note={key.note} onDown={down} onUp={up} onPress={onNotePress}
               style={[
                 styles.whiteKey,
                 {
@@ -167,9 +168,6 @@ export default function PianoKeyboard({
                     isTarget(key.note) || isPressed(key.note) ? 2 : 1,
                 },
               ]}
-              onTouchStart={() => down(key.note)} onTouchEnd={() => up(key.note)} onTouchCancel={() => up(key.note)}
-              onPointerDown={() => down(key.note)} onPointerUp={() => up(key.note)} onPointerCancel={() => up(key.note)}
-              onAccessibilityTap={() => onNotePress(key.note)}
             >
               <Text
                 style={[
@@ -187,21 +185,21 @@ export default function PianoKeyboard({
                 {key.label}
                 <Text style={styles.subOctave}>{key.note.slice(1)}</Text>
               </Text>
-            </View>
+            </PianoKey>
           ))}
         </View>
 
         {/* Black keys */}
         <View
-          style={[styles.blackKeysOverlay, { width: keyboardWidth }]}
+          style={[styles.blackKeysOverlay, { width: keyboardWidth, height: blackKeyHeight }]}
           pointerEvents="box-none"
         >
           {blackKeys.map((key) => {
             const leftPos = key.offset * whiteKeyWidth;
             return (
-              <View
+              <PianoKey
                 key={key.note}
-                accessible accessibilityRole="button" accessibilityLabel={key.note}
+                note={key.note} onDown={down} onUp={up} onPress={onNotePress}
                 style={[
                   styles.blackKey,
                   {
@@ -211,12 +209,9 @@ export default function PianoKeyboard({
                     backgroundColor: getBlackKeyColor(key.note),
                   },
                 ]}
-                onTouchStart={() => down(key.note)} onTouchEnd={() => up(key.note)} onTouchCancel={() => up(key.note)}
-                onPointerDown={() => down(key.note)} onPointerUp={() => up(key.note)} onPointerCancel={() => up(key.note)}
-                onAccessibilityTap={() => onNotePress(key.note)}
               >
                 <Text style={styles.blackKeyLabel}>{key.label}</Text>
-              </View>
+              </PianoKey>
             );
           })}
         </View>

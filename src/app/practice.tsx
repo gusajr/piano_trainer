@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { usePracticeStore, PracticeMode } from '../store/practiceStore';
@@ -16,8 +16,6 @@ import PianoKeyboard from '../components/PianoKeyboard';
 import SongTheoryPanel from '../components/SongTheoryPanel';
 import FragmentPlayer from '../components/FragmentPlayer';
 import { practiceChord, evaluateChordProgress } from '../services/practiceChord';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 // ─── Progress bar ──────────────────────────────────────────────────────────
 function ProgressBar({ current, total }: { current: number; total: number }) {
@@ -115,6 +113,7 @@ const summary = StyleSheet.create({
 // ─── Main Practice Screen ──────────────────────────────────────────────────
 
 export default function PracticeScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const {
     midiData,
     segmentNotes,
@@ -129,6 +128,7 @@ export default function PracticeScreen() {
   } = usePracticeStore();
 
   const [pressedNotes, setPressedNotes] = useState<string[]>([]);
+  const [completedPitches, setCompletedPitches] = useState<number[]>([]);
   const heldNotes = useRef(new Set<number>());
   const playedNotes = useRef(new Set<number>());
   const progressTarget = useRef<typeof segmentNotes[number] | undefined>(undefined);
@@ -177,6 +177,7 @@ export default function PracticeScreen() {
       void playNote(pressedNoteName).catch(console.error);
       if (acceptedChord.current !== null) return;
       if (target.some((note) => note.midi === pitch)) playedNotes.current.add(pitch);
+      setCompletedPitches([...playedNotes.current]);
       const result = evaluateChordProgress(target, heldNotes.current, playedNotes.current);
       if (result === 'wrong') session.recordChordAnswer(false);
       if (result === 'correct') acceptedChord.current = session.currentNoteIndex;
@@ -206,6 +207,7 @@ export default function PracticeScreen() {
       if (session.currentNoteIndex === acceptedChord.current) session.recordChordAnswer(true);
       acceptedChord.current = null;
       playedNotes.current.clear();
+      setCompletedPitches([]);
     }
   }, []);
 
@@ -238,6 +240,7 @@ export default function PracticeScreen() {
             setFeedback(null);
             heldNotes.current.clear();
             playedNotes.current.clear();
+            setCompletedPitches([]);
             acceptedChord.current = null;
             setPressedNotes([]);
           }}
@@ -265,6 +268,7 @@ export default function PracticeScreen() {
               setFeedback(null);
               heldNotes.current.clear();
               playedNotes.current.clear();
+              setCompletedPitches([]);
               acceptedChord.current = null;
               setPressedNotes([]);
               setRevealedMode(false);
@@ -303,7 +307,7 @@ export default function PracticeScreen() {
             currentNoteIndex={currentNoteIndex}
             currentNoteIndices={currentChord.map((_, offset) => currentNoteIndex + offset)}
             clef={clef}
-            width={SCREEN_W - 32}
+            width={screenWidth - 32}
             showNoteNames={showStaffLabels}
           />
         </View>
@@ -335,6 +339,11 @@ export default function PracticeScreen() {
           >
             <Text style={styles.noteHintLabel}>{currentChord.length > 1 ? 'Toca estas notas juntas o por separado:' : 'Toca esta nota:'}</Text>
             <Text style={[styles.noteHintName, currentChord.length > 1 && { fontSize: 30 }]}>{currentChord.map((n) => n.name).join(' + ')}</Text>
+            {currentChord.length > 1 && <Text style={styles.noteHintLabel}>
+              {currentChord.filter((n) => !completedPitches.includes(n.midi)).map((n) => n.name).join(' + ')
+                ? `Faltan: ${currentChord.filter((n) => !completedPitches.includes(n.midi)).map((n) => n.name).join(' + ')}`
+                : '¡Completo! Suelta las teclas para continuar.'}
+            </Text>}
             {feedback && (
               <Text style={styles.noteHintFeedback}>
                 {feedback === 'correct' ? '✅ ¡Correcto!' : '❌ Incorrecto — Inténtalo de nuevo'}
@@ -363,9 +372,9 @@ export default function PracticeScreen() {
           onNoteDown={handleNoteDown}
           onNoteUp={handleNoteUp}
           correctNote={
-            practiceMode === 'A' && currentNote ? currentNote.name : null
+            practiceMode === 'A' && currentNote && !completedPitches.includes(currentNote.midi) ? currentNote.name : null
           }
-          correctNotes={practiceMode === 'A' ? currentChord.map((n) => Note.fromMidiSharps(n.midi)) : []}
+          correctNotes={practiceMode === 'A' ? currentChord.filter((n) => !completedPitches.includes(n.midi)).map((n) => Note.fromMidiSharps(n.midi)) : []}
           rangeNotes={currentChord.map((n) => Note.fromMidiSharps(n.midi))}
           pressedNotes={pressedNotes}
         />
